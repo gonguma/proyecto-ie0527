@@ -85,12 +85,12 @@ def blink_error(times=3, delay=0.2):
         time.sleep(delay)
 
 
-def find_source_txt_file():
-    """
+"""def find_source_txt_file():
+    
     Busca el primer archivo .txt en la carpeta tests,
     que debe estar en el mismo directorio que este script.
     Ej: /home/pi/nodo_rf/tests/tester1.txt
-    """
+    
     base_dir = Path(__file__).resolve().parent
     tests_dir = base_dir / "tests"
 
@@ -105,7 +105,40 @@ def find_source_txt_file():
         raise RuntimeError(f"No se encontró ningún archivo .txt en {tests_dir}")
 
     # Tomamos el primero
+    return txt_files[0]"""
+
+
+# ----------------- USB helpers (para TX) -----------------
+def find_usb_mount():
+    """
+    Devuelve la carpeta donde está montada la USB.
+    Asume Raspberry Pi OS que monta en /media/<usuario>/<LABEL>.
+    """
+    user = Path.home().name
+    media_root = Path("/media") / user
+
+    if not media_root.exists():
+        raise RuntimeError(f"No se encontró la carpeta {media_root} (¿USB sin montar?)")
+
+    mounts = [d for d in media_root.iterdir() if d.is_dir()]
+    if not mounts:
+        raise RuntimeError(f"No se encontró ninguna USB montada en {media_root}")
+
+    # Como solo habrá una USB, tomamos la primera
+    return mounts[0]
+
+
+def find_source_txt_file():
+    """
+    Busca el primer archivo .txt en la USB.
+    Se asume que la llave solo tendrá un archivo .txt.
+    """
+    mount = find_usb_mount()
+    txt_files = list(mount.glob("*.txt"))
+    if not txt_files:
+        raise RuntimeError(f"No se encontró ningún archivo .txt en {mount}")
     return txt_files[0]
+
 
 
 def wait_for_button_choice():
@@ -211,7 +244,7 @@ def send_file_over_radio(path: Path):
 def modo_tx():
     """
     Modo transmisor:
-    - LED1 parpadea mientras envía el archivo .txt desde ./tests.
+    - LED1 parpadea mientras envía el archivo .txt desde la USB.
     - Al terminar, LED1 queda encendido, LED2 apagado.
     """
     print("Entrando a modo TX...")
@@ -220,7 +253,7 @@ def modo_tx():
     try:
         source_path = find_source_txt_file()
     except Exception as e:
-        print(f"[TX] ERROR buscando archivo en ./tests: {e}")
+        print(f"[TX] ERROR buscando archivo en USB: {e}")
         blink_error()
         GPIO.output(LED1, GPIO.HIGH)
         GPIO.output(LED2, GPIO.LOW)
@@ -233,7 +266,6 @@ def modo_tx():
     else:
         print("[TX] Transmisión exitosa.")
 
-    # Estado idle al final
     GPIO.output(LED1, GPIO.HIGH)
     GPIO.output(LED2, GPIO.LOW)
 
