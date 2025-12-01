@@ -66,11 +66,11 @@ def setup_radio():
 
 
 # ----------------- Encontrar USB montada -----------------
-def find_usb_mount():
-    """
+"""def find_usb_mount():
+    
     Devuelve la carpeta donde está montada la USB.
     Asume Raspberry Pi OS que monta en /media/<usuario>/<LABEL>.
-    """
+    
     user = Path.home().name
     media_root = Path("/media") / user
 
@@ -82,30 +82,47 @@ def find_usb_mount():
         raise RuntimeError(f"No se encontró ninguna USB montada en {media_root}")
 
     # Como solo habrá una USB, tomamos la primera
-    return mounts[0]
+    return mounts[0]"""
 
 
 # ----------------- Encontrar Archivo txt -----------------
-def find_source_txt_file():
-    """
+"""def find_source_txt_file():
+    
     Busca el primer archivo .txt en la USB.
     Úsalo en el nodo transmisor.
-    """
+    
     mount = find_usb_mount()
     txt_files = list(mount.glob("*.txt"))
     if not txt_files:
         raise RuntimeError(f"No se encontró ningún archivo .txt en {mount}")
     # Como la USB solo tendrá el archivo, tomamos el primero
+    return txt_files[0]"""
+
+# ----------------- Encontrar Archivo txt localmente -----------------
+def find_source_txt_file():
+    """
+    Busca el primer archivo .txt en la carpeta donde está nodo_rf.py.
+    Ignora 'recibido.txt' por si existiera.
+    """
+    base_dir = Path(__file__).resolve().parent
+    txt_files = [
+        p for p in base_dir.glob("*.txt")
+        if p.name != "recibido.txt"
+    ]
+    if not txt_files:
+        raise RuntimeError(f"No se encontró ningún archivo .txt en {base_dir}")
+    # Tomamos el primero (como antes con la USB)
     return txt_files[0]
 
 
+
 # ----------------- Ruta destino (RX) -----------------
-def get_dest_usb_path(filename="recibido.txt"):
-    """
+"""def get_dest_usb_path(filename="recibido.txt"):
+    
     Devuelve la ruta donde se guardará el archivo recibido en la USB.
-    """
+    
     mount = find_usb_mount()
-    return mount / filename
+    return mount / filename"""
 
 
 # ----------------- Utilidades -----------------
@@ -182,38 +199,36 @@ def modo_tx():
     GPIO.output(LED2, GPIO.LOW)
 
 
-# ----------------- Lógica de modo RX -----------------
-def modo_rx(timeout_s=10):
+# ----------------- Modo RX en bucle -----------------
+def modo_rx():
     """
-    Modo receptor:
-    - Apaga LED1, enciende LED2.
-    - Espera archivo desde el otro nodo y lo guarda en la USB como recibido.txt.
-    - Al terminar (bien o mal), LED2 OFF, LED1 ON.
+    Bucle infinito en modo RX:
+    - LED1 encendido indica "listo / idle".
+    - Cuando se recibe un archivo, se guarda como recibido.txt en esta carpeta.
+    - Tras cada intento (éxito o error), vuelve a estado idle.
     """
-    print("Entrando a modo RX...")
+    base_dir = Path(__file__).resolve().parent
+    dest_path = base_dir / "recibido.txt"
 
-    try:
-        dest_path = get_dest_usb_path("recibido.txt")
-    except Exception as e:
-        print(f"[RX] ERROR buscando USB destino: {e}")
-        blink_error()
+    while True:
+        # Estado idle
         GPIO.output(LED1, GPIO.HIGH)
         GPIO.output(LED2, GPIO.LOW)
-        return
+        print("\n[MAIN] Listo para recibir. LED1 encendido.")
+        print("[MAIN] Esperando archivo...")
 
-    ok = receive_file_over_radio(dest_path,
-                                 header_timeout_s=timeout_s,
-                                 data_timeout_s=2)
+        ok = receive_file_over_radio(dest_path,
+                                     header_timeout_s=60,
+                                     data_timeout_s=2)
 
-    if not ok:
-        print("[RX] Recepción fallida.")
-        blink_error()
-    else:
-        print("[RX] Recepción exitosa.")
+        if not ok:
+            print("[MAIN] Intento de recepción fallido.")
+            blink_error()
+        else:
+            print("[MAIN] Recepción OK. Archivo guardado.")
 
-    # Volvemos a "idle": LED1 ON, LED2 OFF
-    GPIO.output(LED1, GPIO.HIGH)
-    GPIO.output(LED2, GPIO.LOW)
+        # Pequeña pausa antes de esperar otra vez
+        time.sleep(1)
 
     
 # ----------------- Funcion para enviar archivo -----------------
