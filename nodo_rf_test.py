@@ -84,7 +84,7 @@ def blink_error(times=3, delay=0.2):
         GPIO.output(LED2, GPIO.LOW)
         time.sleep(delay)
 
-
+# ----------------- File helpers -----------------
 """def find_source_txt_file():
     
     Busca el primer archivo .txt en la carpeta tests,
@@ -106,6 +106,35 @@ def blink_error(times=3, delay=0.2):
 
     # Tomamos el primero
     return txt_files[0]"""
+
+
+# ----------------- USB helpers para RX (NUEVO) -----------------
+def find_usb_mount_rx():
+    """
+    Devuelve la carpeta donde está montada la USB en el nodo RX.
+    Asume Raspberry Pi OS que monta en /media/<usuario>/<LABEL>.
+    """
+    user = Path.home().name
+    media_root = Path("/media") / user
+
+    if not media_root.exists():
+        raise RuntimeError(f"[RX] No se encontró la carpeta {media_root} (¿USB sin montar?)")
+
+    mounts = [d for d in media_root.iterdir() if d.is_dir()]
+    if not mounts:
+        raise RuntimeError(f"[RX] No se encontró ninguna USB montada en {media_root}")
+
+    # Como solo habrá una USB, tomamos la primera
+    return mounts[0]
+
+
+def get_dest_usb_path_rx(filename="recibido.txt"):
+    """
+    Devuelve la ruta donde se guardará el archivo recibido en la USB.
+    Ejemplo: /media/<user>/<LABEL>/recibido.txt
+    """
+    mount = find_usb_mount_rx()
+    return mount / filename
 
 
 # ----------------- USB helpers (para TX) -----------------
@@ -357,11 +386,17 @@ def modo_rx(timeout_s=60):
     """
     Modo receptor:
     - LED1 se apaga, LED2 se enciende.
-    - Espera archivo y lo guarda como recibido.txt en la carpeta del script.
+    - Espera archivo y lo guarda como recibido.txt.
+      Puedes elegir entre guardarlo localmente o en la USB.
     """
     print("Entrando a modo RX...")
+
+    # Opción 1: guardar localmente en la carpeta del script
     base_dir = Path(__file__).resolve().parent
     dest_path = base_dir / "recibido.txt"
+
+    # Opción 2: guardar en la USB
+    #dest_path = get_dest_usb_path_rx("recibido.txt")
 
     ok = receive_file_over_radio(dest_path,
                                  header_timeout_s=timeout_s,
@@ -371,7 +406,7 @@ def modo_rx(timeout_s=60):
         print("[RX] Recepción fallida.")
         blink_error()
     else:
-        print("[RX] Recepción OK. Archivo guardado.")
+        print(f"[RX] Recepción OK. Archivo guardado en: {dest_path}")
 
     GPIO.output(LED1, GPIO.HIGH)
     GPIO.output(LED2, GPIO.LOW)

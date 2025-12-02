@@ -244,3 +244,12 @@ El sistema operativo monta la USB en algo como:
 
 - En el transmisor busca en esa ruta el `.txt` y lo envía.
 - En el receptor escribe el archivo recibido (ej. `recibido.txt`) en la USB correspondiente.
+
+
+## Servicio
+
+Para recargar el servicio ante cualquier cambio en el código se utiliza el siguiente comando:
+
+```
+sudo systemctl restart nodo_rf.service
+```
